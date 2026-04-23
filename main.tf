@@ -12,7 +12,7 @@ resource "aws_db_instance" "app_db" {
   db_name              = "app_db"
   username             = "admin"
   password             = "password123"
-  vpc_security_group_ids = [aws_vpc_security_group.db_sg.id]
+  
   skip_final_snapshot  = true
 }
 
@@ -31,27 +31,35 @@ resource "aws_instance" "app_server" {
     Name = "AppServer"
   }
 
-  vpc_security_group_ids = [aws_vpc_security_group.app_sg.id]
+ 
 }
 
 # Create a security group for the RDS instance
-resource "aws_vpc_security_group" "db_sg" {
+resource "aws_security_group" "db_sg" {
   name        = "db_sg"
   description = "Allow MySQL traffic"
-
-  ingress {
-    from_port   = 3306
-    to_port     = 3306
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
- 
+  vpc_id = aws_vpc.main_vpc.id
+  tags = {
+    Name = "DBSecurityGroup"
   }
-  egress {
+}
+
+# Allow incoming MySQL traffic to the RDS instance
+resource "aws_vpc_security_group_ingress_rule" "db_sg" {
+  security_group_id = aws_security_group.db_sg.id
+  from_port         = 3306
+  to_port           = 3306  
+  ip_protocol       = "tcp"
+  cidr_ipv4         = "0.0.0.0/0"
+}
+ 
+# Allow outgoing traffic from the RDS instance to anywhere
+resource "aws_vpc_security_group_egress_rule" "db_sg" {
+    security_group_id = aws_security_group.db_sg.id
     from_port   = 0
     to_port     = 0
-    protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
+    ip_protocol = "-1"
+    cidr_ipv4         = "0.0.0.0/0"
 }
 
 resource "aws_vpc" "main_vpc" {
@@ -64,40 +72,39 @@ resource "aws_subnet" "main_subnet" {
   cidr_block        = "10.0.1.0/24"
 }
 
-resource "aws_vpc_security_group" "db_sg" {
-  name        = "db_sg"
-  description = "Allow MySQL traffic"
-  vpc_id      = aws_vpc.main_vpc.id
-
-  ingress {
-    from_port   = 3306
-    to_port     = 3306
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-  egress {
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-}
-
-resource "aws_vpc_security_group" "app_sg" {
+# Create a security group for the EC2 instance
+resource "aws_security_group" "app_sg" {
   name        = "app_sg"
-  description = "Allow HTTP traffic"
-  vpc_id      = aws_vpc.main_vpc.id
+  description = "Allow HTTP and SSH traffic"
+  vpc_id = aws_vpc.main_vpc.id
+  tags = {
+    Name = "AppSecurityGroup"
+  } 
+}
 
-  ingress {
-    from_port   = 80
-    to_port     = 80
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-  egress {
+# Allow incoming HTTP traffic to the EC2 instance
+resource "aws_vpc_security_group_ingress_rule" "app_sg" {
+  security_group_id = aws_security_group.app_sg.id
+  from_port         = 80
+  to_port           = 80
+  ip_protocol       = "tcp"
+  cidr_ipv4         = "0.0.0.0/0"
+}
+
+# Allow incoming SSH traffic to the EC2 instance
+resource "aws_vpc_security_group_ingress_rule" "app_sg_ssh" {
+  security_group_id = aws_security_group.app_sg.id
+  from_port         = 22
+  to_port           = 22
+  ip_protocol       = "tcp"
+  cidr_ipv4         = "0.0.0.0/0"
+}
+# Allow outgoing traffic from the EC2 instance to anywhere
+resource "aws_vpc_security_group_egress_rule" "app_sg" {
+    security_group_id = aws_security_group.app_sg.id
     from_port   = 0
     to_port     = 0
-    protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
+    ip_protocol = "-1"
+    cidr_ipv4         = "0.0.0.0/0"
 }
+
