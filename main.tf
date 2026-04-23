@@ -33,3 +33,15 @@ resource "aws_instance" "app_server" {
   vpc_security_group_ids = [aws_db_instance.app_db.vpc_security_group_name]
 
 }
+
+resource "aws_security_group" "db_sg" {
+  name        = "db_sg"
+  description = "Allow MySQL traffic"
+
+  ingress {
+    from_port   = 3306
+    to_port     = 3306
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+}
